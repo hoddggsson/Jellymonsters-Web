@@ -56,7 +56,6 @@
     let cnv;
 
     function getScaleFactor() {
-      // Scale primarily based on width to fit vertical containers nicely
       return width / BASE_WIDTH;
     }
 
@@ -95,20 +94,28 @@
       resizeCanvas(windowWidth, windowHeight);
     }
 
-function activateAudio() {
-  if (!isAudioActive) {
-    userStartAudio().then(() => {
-      mic = new p5.AudioIn();
-      mic.start();
-      isAudioActive = true;
-      fft = new p5.FFT();
-      fft.setInput(mic);
-      console.log('mic started successfully');
-    }).catch(err => {
-      console.error("Audio context error: ", err);
-    });
-  }
-}
+    function activateAudio() {
+      if (!isAudioActive) {
+        userStartAudio();
+        
+        if (!mic) {
+          mic = new p5.AudioIn();
+          mic.start();
+        }
+        
+        let ac = getAudioContext();
+        if (ac && ac.state !== 'running') {
+          ac.resume().then(() => {
+            console.log('Audio Context resumed successfully');
+          });
+        }
+        
+        fft = new p5.FFT();
+        fft.setInput(mic);
+        isAudioActive = true;
+        console.log('Audio active state forced on');
+      }
+    }
 
     function draw() {
       clear();
@@ -142,10 +149,6 @@ function activateAudio() {
         loudness = fft.getEnergy(100, 3000);
         let triggerThreshold = 102;
 
-        if (isAudioActive && fft) {
-  console.log('loudness:', loudness, 'highFreq:', highFreqEnergy);
-}
-
         if (activeMouth) {
           mouthTimer--;
           if (mouthTimer <= 0) activeMouth = null;
@@ -159,7 +162,7 @@ function activateAudio() {
         eyeSize = map(loudness, 0, 255, minEyeSize, maxEyeSize);
       }
 
-      // LINES - Light grey so it shows on white backgrounds
+      // LINES
       noFill();
       stroke(0, 0, 70); 
       strokeWeight(12 * scale);
