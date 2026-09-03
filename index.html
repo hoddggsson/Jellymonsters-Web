@@ -37,16 +37,17 @@
     let mic;
     let isAudioActive = false;
 
-    const BASE_WIDTH = 1440;
-    const BASE_HEIGHT = 900;
+    // Tailored for portrait / vertical framing
+    const BASE_WIDTH = 500;
+    const BASE_HEIGHT = 800;
 
     let lines = [
-      { xOffset: 12, yStartOffset: -170, yEndOffset: 370 },
-      { xOffset: 36, yStartOffset: -170, yEndOffset: 320 },
-      { xOffset: 60, yStartOffset: -170, yEndOffset: 340 },
-      { xOffset: -12, yStartOffset: -170, yEndOffset: 280 },
-      { xOffset: -36, yStartOffset: -170, yEndOffset: 350 },
-      { xOffset: -60, yStartOffset: -170, yEndOffset: 330 },
+      { xOffset: 12, yStartOffset: -120, yEndOffset: 280 },
+      { xOffset: 36, yStartOffset: -120, yEndOffset: 240 },
+      { xOffset: 60, yStartOffset: -120, yEndOffset: 260 },
+      { xOffset: -12, yStartOffset: -120, yEndOffset: 220 },
+      { xOffset: -36, yStartOffset: -120, yEndOffset: 270 },
+      { xOffset: -60, yStartOffset: -120, yEndOffset: 250 },
     ];
 
     let characterY = 0;
@@ -55,30 +56,24 @@
     let cnv;
 
     function getScaleFactor() {
-      let scaleX = width / BASE_WIDTH;
-      let scaleY = height / BASE_HEIGHT;
-      return min(scaleX, scaleY);
+      // Scale primarily based on width to fit vertical containers nicely
+      return width / BASE_WIDTH;
     }
 
     function preload() {
       for (let i = 1; i <= 4; i++) {
         imgs.push(loadImage(`assets/semi${i}.png`));
       }
-
       mainMouth = loadImage("assets/mouth.png");
-
       for (let i = 1; i <= 9; i++) {
         mouthImgs.push(loadImage(`assets/mouth${i}.png`));
       }
-
       for (let i = 1; i <= 4; i++) {
         eyeImgs.push(loadImage(`assets/eyes${i}.png`));
       }
-
       for (let i = 1; i <= 4; i++) {
         noseImgs.push(loadImage(`assets/nose${i}.png`));
       }
-
       for (let i = 1; i <= 4; i++) {
         hornImgs.push(loadImage(`assets/horns${i}.png`));
       }
@@ -105,10 +100,13 @@
       if (!isAudioActive) {
         userStartAudio();
         mic = new p5.AudioIn();
-        mic.start();
-        fft = new p5.FFT();
-        fft.setInput(mic);
-        isAudioActive = true;
+        mic.start(() => {
+          isAudioActive = true;
+          fft = new p5.FFT();
+          fft.setInput(mic);
+        }, (err) => {
+          console.error("Mic error: ", err);
+        });
       }
     }
 
@@ -117,25 +115,23 @@
 
       let scale = getScaleFactor();
 
-      let yOffset = sin(frameCount * 0.05) * 10 * scale;
+      let yOffset = sin(frameCount * 0.05) * 8 * scale;
       characterY = lerp(characterY, yOffset, 0.4);
 
       let wiggleFactor = 0.05;
       let currentImageHue = 0;
-      let eyeSize = 67 * scale;
+      let eyeSize = 55 * scale;
       let loudness = 0;
 
-      if (isAudioActive) {
+      if (isAudioActive && fft) {
         let highFreqEnergy = fft.getEnergy(700, 8000);
         let highFreqThreshold = 150;
         let baseWiggle = 0.05;
 
         if (highFreqEnergy > highFreqThreshold) {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 255, 1, 50);
-          wiggleFactor = constrain(wiggleFactor, baseWiggle + 3, baseWiggle + 50);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 255, 1, 40);
         } else {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 3);
-          wiggleFactor = constrain(wiggleFactor, baseWiggle, baseWiggle + 3);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 2);
         }
 
         let bassEnergy = fft.getEnergy(50, 120);
@@ -154,15 +150,15 @@
           mouthTimer = 120;
         }
 
-        let minEyeSize = 67 * scale;
-        let maxEyeSize = 145 * scale;
+        let minEyeSize = 55 * scale;
+        let maxEyeSize = 120 * scale;
         eyeSize = map(loudness, 0, 255, minEyeSize, maxEyeSize);
       }
 
-      // LINES
+      // LINES - Light grey so it shows on white backgrounds
       noFill();
-      stroke(255);
-      strokeWeight(13 * scale);
+      stroke(180); 
+      strokeWeight(10 * scale);
 
       for (let i = 0; i < lines.length; i++) {
         let { xOffset, yStartOffset, yEndOffset } = lines[i];
@@ -175,7 +171,7 @@
           let effectiveY = y + characterY;
           let taperFactor = map(effectiveY, baseYStart + characterY, baseYEnd + characterY, 0, 1);
           let scaledWiggleFactor = wiggleFactor * pow(taperFactor, 0.5);
-          let wiggle = (noise(noiseOffset[i] + effectiveY / scale * 0.005, frameCount * 0.1) - 0.5) * scaledWiggleFactor * (200 * scale);
+          let wiggle = (noise(noiseOffset[i] + effectiveY / scale * 0.005, frameCount * 0.1) - 0.5) * scaledWiggleFactor * (150 * scale);
           curveVertex(x + wiggle, effectiveY);
         }
         endShape();
@@ -184,13 +180,13 @@
       // HORNS
       currentHornIndex = floor(frameCount / 5) % hornImgs.length;
       let hornImg = hornImgs[currentHornIndex];
-      image(hornImg, width / 2, height / 2 + (-300 * scale) + characterY, (hornImg.width / 4) * scale, (hornImg.height / 4) * scale);
+      image(hornImg, width / 2, height / 2 + (-240 * scale) + characterY, (hornImg.width / 5) * scale, (hornImg.height / 5) * scale);
 
       // BODY
       tint(currentImageHue, 100, 100);
       currentImageIndex = floor(frameCount / 5) % imgs.length;
       currentNoseIndex = floor(frameCount / 5) % noseImgs.length;
-      image(imgs[currentImageIndex], width / 2, height / 2 + (-230 * scale) + characterY, (imgs[currentImageIndex].width / 3.7) * scale, (imgs[currentImageIndex].height / 3.7) * scale);
+      image(imgs[currentImageIndex], width / 2, height / 2 + (-180 * scale) + characterY, (imgs[currentImageIndex].width / 4.5) * scale, (imgs[currentImageIndex].height / 4.5) * scale);
       noTint();
 
       // MOUTH
@@ -200,18 +196,18 @@
       let jiggleX = (noise(frameCount * jiggleSpeed) - 0.5) * jiggleAmount * 2;
       let jiggleY = (noise(frameCount * jiggleSpeed + 1000) - 0.5) * jiggleAmount * 2;
 
-      image(mouthToShow, width / 2 + jiggleX, height / 2 + (-247 * scale) + characterY + jiggleY, (mouthToShow.width / 4) * scale, (mouthToShow.height / 4) * scale);
+      image(mouthToShow, width / 2 + jiggleX, height / 2 + (-195 * scale) + characterY + jiggleY, (mouthToShow.width / 5) * scale, (mouthToShow.height / 5) * scale);
 
       // NOSE
       let noseImg = noseImgs[currentNoseIndex];
-      image(noseImg, width / 2, height / 2 + (-273 * scale) + characterY, (noseImg.width / 3.7) * scale, (noseImg.height / 3.7) * scale);
+      image(noseImg, width / 2, height / 2 + (-215 * scale) + characterY, (noseImg.width / 4.5) * scale, (noseImg.height / 4.5) * scale);
 
       // EYES
       currentEyeIndex = floor(frameCount / 5) % eyeImgs.length;
       let aspectRatio = eyeImgs[currentEyeIndex].width / eyeImgs[currentEyeIndex].height;
       let scaledHeight = eyeSize;
       let scaledWidth = scaledHeight * aspectRatio;
-      image(eyeImgs[currentEyeIndex], width / 2, height / 2 + (-320 * scale) + characterY, scaledWidth, scaledHeight);
+      image(eyeImgs[currentEyeIndex], width / 2, height / 2 + (-255 * scale) + characterY, scaledWidth, scaledHeight);
     }
   </script>
 </body>
