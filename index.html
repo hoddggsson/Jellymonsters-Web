@@ -5,7 +5,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Jellymonsters Web</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/addons/p5.sound.min.js"></script>
   <style>
     body {
       margin: 0;
@@ -33,11 +32,10 @@
     let noiseOffset = [];
     let currentHue = 0;
 
-    let fft;
-    let mic;
+    // Native Web Audio variables
+    let audioCtx, analyser, microphone, dataArray;
     let isAudioActive = false;
 
-    // Tailored for portrait / vertical framing
     const BASE_WIDTH = 500;
     const BASE_HEIGHT = 800;
 
@@ -96,24 +94,20 @@
 
     function activateAudio() {
       if (!isAudioActive) {
-        userStartAudio();
-        
-        if (!mic) {
-          mic = new p5.AudioIn();
-          mic.start();
-        }
-        
-        let ac = getAudioContext();
-        if (ac && ac.state !== 'running') {
-          ac.resume().then(() => {
-            console.log('Audio Context resumed successfully');
+        navigator.mediaDevices.getUserMedia({ audio: true, video: false })
+          .then(stream => {
+            audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            analyser = audioCtx.createAnalyser();
+            microphone = audioCtx.createMediaStreamSource(stream);
+            microphone.connect(analyser);
+            analyser.fftSize = 256;
+            dataArray = new Uint8Array(analyser.frequencyBinCount);
+            isAudioActive = true;
+            console.log('Native microphone active!');
+          })
+          .catch(err => {
+            console.error('Microphone permission denied or unavailable:', err);
           });
-        }
-        
-        fft = new p5.FFT();
-        fft.setInput(mic);
-        isAudioActive = true;
-        console.log('Audio active state forced on');
       }
     }
 
@@ -130,24 +124,35 @@
       let eyeSize = 55 * scale;
       let loudness = 0;
 
-      if (isAudioActive && fft) {
-        let highFreqEnergy = fft.getEnergy(700, 8000);
-        let highFreqThreshold = 150;
+      if (isAudioActive && analyser) {
+        analyser.getByteFrequencyData(dataArray);
+
+        // Calculate bass (lower bins) and highs (upper bins)
+        let bassSum = 0;
+        for (let i = 0; i < 8; i++) bassSum += dataArray[i];
+        let bassEnergy = (bassSum / 8) * (360 / 255); // map to 0-360
+
+        let highSum = 0;
+        for (let i = 10; i < dataArray.length; i++) highSum += dataArray[i];
+        let highFreqEnergy = highSum / (dataArray.length - 10);
+
+        let highFreqThreshold = 40;
         let baseWiggle = 0.05;
 
         if (highFreqEnergy > highFreqThreshold) {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 255, 1, 40);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 150, 1, 45, true);
         } else {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 2);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 2, true);
         }
 
-        let bassEnergy = fft.getEnergy(50, 120);
-        let targetHue = map(bassEnergy, 0, 150, 0, 360);
-        currentHue = lerp(currentHue, targetHue, 0.1);
+        currentHue = lerp(currentHue, bassEnergy, 0.1);
         currentImageHue = currentHue;
 
-        loudness = fft.getEnergy(100, 3000);
-        let triggerThreshold = 102;
+        // Overall loudness approximation
+        let totalSum = 0;
+        for (let i = 0; i < dataArray.length; i++) totalSum += dataArray[i];
+        loudness = totalSum / dataArray.length;
+        let triggerThreshold = 25;
 
         if (activeMouth) {
           mouthTimer--;
@@ -159,7 +164,7 @@
 
         let minEyeSize = 55 * scale;
         let maxEyeSize = 120 * scale;
-        eyeSize = map(loudness, 0, 255, minEyeSize, maxEyeSize);
+        eyeSize = map(loudness, 0, 100, minEyeSize, maxEyeSize, true);
       }
 
       // LINES
