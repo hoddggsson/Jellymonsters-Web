@@ -32,7 +32,6 @@
     let noiseOffset = [];
     let currentHue = 0;
 
-    // Native Web Audio variables
     let audioCtx, analyser, microphone, dataArray;
     let isAudioActive = false;
 
@@ -97,17 +96,25 @@
         navigator.mediaDevices.getUserMedia({ audio: true, video: false })
           .then(stream => {
             audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            if (audioCtx.state !== 'running') {
+              audioCtx.resume();
+            }
             analyser = audioCtx.createAnalyser();
             microphone = audioCtx.createMediaStreamSource(stream);
             microphone.connect(analyser);
             analyser.fftSize = 256;
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             isAudioActive = true;
-            console.log('Native microphone active!');
+            console.log('Native microphone active & context running!');
           })
           .catch(err => {
             console.error('Microphone permission denied or unavailable:', err);
           });
+      } else {
+        // Handle Safari/Chrome dropping context state on re-interaction
+        if (audioCtx && audioCtx.state !== 'running') {
+          audioCtx.resume();
+        }
       }
     }
 
@@ -127,32 +134,30 @@
       if (isAudioActive && analyser) {
         analyser.getByteFrequencyData(dataArray);
 
-        // Calculate bass (lower bins) and highs (upper bins)
         let bassSum = 0;
         for (let i = 0; i < 8; i++) bassSum += dataArray[i];
-        let bassEnergy = (bassSum / 8) * (360 / 255); // map to 0-360
+        let bassEnergy = (bassSum / 8) * (360 / 255);
 
         let highSum = 0;
         for (let i = 10; i < dataArray.length; i++) highSum += dataArray[i];
         let highFreqEnergy = highSum / (dataArray.length - 10);
 
-        let highFreqThreshold = 40;
+        let highFreqThreshold = 20; // Lowered threshold for better sensitivity
         let baseWiggle = 0.05;
 
         if (highFreqEnergy > highFreqThreshold) {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 150, 1, 45, true);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 120, 0.5, 25, true);
         } else {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 2, true);
+          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 1, true);
         }
 
         currentHue = lerp(currentHue, bassEnergy, 0.1);
         currentImageHue = currentHue;
 
-        // Overall loudness approximation
         let totalSum = 0;
         for (let i = 0; i < dataArray.length; i++) totalSum += dataArray[i];
         loudness = totalSum / dataArray.length;
-        let triggerThreshold = 25;
+        let triggerThreshold = 10; // More responsive to normal speaking volume
 
         if (activeMouth) {
           mouthTimer--;
@@ -164,12 +169,12 @@
 
         let minEyeSize = 55 * scale;
         let maxEyeSize = 120 * scale;
-        eyeSize = map(loudness, 0, 100, minEyeSize, maxEyeSize, true);
+        eyeSize = map(loudness, 5, 80, minEyeSize, maxEyeSize, true);
       }
 
-      // LINES
+      // LINES - Custom hex color #dae6fe supported natively by p5
       noFill();
-      stroke(0, 0, 70); 
+      stroke('#dae6fe'); 
       strokeWeight(12 * scale);
 
       for (let i = 0; i < lines.length; i++) {
