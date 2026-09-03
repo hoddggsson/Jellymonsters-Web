@@ -105,13 +105,11 @@
             analyser.fftSize = 256;
             dataArray = new Uint8Array(analyser.frequencyBinCount);
             isAudioActive = true;
-            console.log('Native microphone active & context running!');
           })
           .catch(err => {
             console.error('Microphone permission denied or unavailable:', err);
           });
       } else {
-        // Handle Safari/Chrome dropping context state on re-interaction
         if (audioCtx && audioCtx.state !== 'running') {
           audioCtx.resume();
         }
@@ -126,7 +124,7 @@
       let yOffset = sin(frameCount * 0.05) * 8 * scale;
       characterY = lerp(characterY, yOffset, 0.4);
 
-      let wiggleFactor = 0.05;
+      let wiggleFactor = 0;
       let currentImageHue = 0;
       let eyeSize = 55 * scale;
       let loudness = 0;
@@ -134,31 +132,23 @@
       if (isAudioActive && analyser) {
         analyser.getByteFrequencyData(dataArray);
 
+        // 1. Frequency (Bass) mapped to Color Hue
         let bassSum = 0;
         for (let i = 0; i < 8; i++) bassSum += dataArray[i];
         let bassEnergy = (bassSum / 8) * (360 / 255);
-
-        let highSum = 0;
-        for (let i = 10; i < dataArray.length; i++) highSum += dataArray[i];
-        let highFreqEnergy = highSum / (dataArray.length - 10);
-
-        let highFreqThreshold = 20; // Lowered threshold for better sensitivity
-        let baseWiggle = 0.05;
-
-        if (highFreqEnergy > highFreqThreshold) {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, highFreqThreshold, 120, 0.5, 25, true);
-        } else {
-          wiggleFactor = baseWiggle + map(highFreqEnergy, 0, highFreqThreshold, 0, 1, true);
-        }
-
         currentHue = lerp(currentHue, bassEnergy, 0.1);
         currentImageHue = currentHue;
 
+        // 2. Overall Loudness mapped to Wiggles, Eyes, and Mouth
         let totalSum = 0;
         for (let i = 0; i < dataArray.length; i++) totalSum += dataArray[i];
         loudness = totalSum / dataArray.length;
-        let triggerThreshold = 10; // More responsive to normal speaking volume
 
+        // No idle wiggle: absolute silence = 0 wiggle, scaling up directly with sound
+        wiggleFactor = map(loudness, 0, 55, 0, 25, true);
+
+        // Mouth triggers on speech/noise
+        let triggerThreshold = 10;
         if (activeMouth) {
           mouthTimer--;
           if (mouthTimer <= 0) activeMouth = null;
@@ -167,12 +157,15 @@
           mouthTimer = 120;
         }
 
+        // Eye scaling tied to loudness
         let minEyeSize = 55 * scale;
         let maxEyeSize = 120 * scale;
-        eyeSize = map(loudness, 5, 80, minEyeSize, maxEyeSize, true);
+        eyeSize = map(loudness, 0, 50, minEyeSize, maxEyeSize, true);
+      } else {
+        wiggleFactor = 0;
       }
 
-      // LINES - Custom hex color #dae6fe supported natively by p5
+      // LINES
       noFill();
       stroke('#dae6fe'); 
       strokeWeight(12 * scale);
