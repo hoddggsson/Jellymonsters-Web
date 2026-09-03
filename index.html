@@ -110,6 +110,9 @@
     }
 
     function draw() {
+      if (isAudioActive && fft) {
+  console.log('loudness:', loudness, 'highFreq:', highFreqEnergy);
+}
       clear();
 
       let scale = getScaleFactor();
