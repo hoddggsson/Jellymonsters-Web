@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Jellymonsters Test</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: transparent;
+    }
+    canvas {
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <script>
+    let rectColor;
+
+    function setup() {
+      createCanvas(windowWidth, windowHeight);
+      rectColor = color(255, 100, 150);
+    }
+
+    function draw() {
+      clear(); // Transparent background to blend into your Cargo site
+      
+      // Calculate a centered vertical rectangle that scales with the frame
+      let boxWidth = min(width * 0.75, 400);
+      let boxHeight = min(height * 0.85, 900);
+      
+      let x = (width - boxWidth) / 2;
+      let y = (height - boxHeight) / 2;
+      
+      fill(rectColor);
+      noStroke();
+      rect(x, y, boxWidth, boxHeight, 16);
+    }
+
+    function mousePressed() {
+      // Randomize color on click
+      rectColor = color(random(50, 255), random(50, 255), random(50, 255));
+    }
+
+    function windowResized() {
+      resizeCanvas(windowWidth, windowHeight);
+    }
+  </script>
+</body>
+</html>
