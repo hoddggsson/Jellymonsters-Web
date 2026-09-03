@@ -95,19 +95,21 @@
       resizeCanvas(windowWidth, windowHeight);
     }
 
-    function activateAudio() {
-      if (!isAudioActive) {
-        userStartAudio();
-        mic = new p5.AudioIn();
-        mic.start(() => {
-          isAudioActive = true;
-          fft = new p5.FFT();
-          fft.setInput(mic);
-        }, (err) => {
-          console.error("Mic error: ", err);
-        });
-      }
-    }
+function activateAudio() {
+  if (!isAudioActive) {
+    userStartAudio().then(() => {
+      mic = new p5.AudioIn();
+      mic.start(() => {
+        isAudioActive = true;
+        fft = new p5.FFT();
+        fft.setInput(mic);
+        console.log('mic started successfully');
+      }, (err) => {
+        console.error("Mic error: ", err);
+      });
+    });
+  }
+}
 
     function draw() {
       clear();
