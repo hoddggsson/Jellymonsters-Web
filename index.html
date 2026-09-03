@@ -217,7 +217,25 @@
       let aspectRatio = eyeImgs[currentEyeIndex].width / eyeImgs[currentEyeIndex].height;
       let scaledHeight = eyeSize;
       let scaledWidth = scaledHeight * aspectRatio;
-      image(eyeImgs[currentEyeIndex], width / 2, height / 2 + (-255 * scale) + characterY, scaledWidth, scaledHeight);
+
+      image(
+        eyeImgs[currentEyeIndex],
+        width / 2,
+        height / 2 + (-255 * scale) + characterY,
+        scaledWidth,
+        scaledHeight
+      );
+
+      // CLICK TO WAKE PROMPT (Disappears once audio is active)
+      if (!isAudioActive) {
+        push();
+        textAlign(CENTER, CENTER);
+        textSize(16 * scale);
+        fill('#667799');
+        noStroke();
+        text("click to wake", width / 2, height / 2 + (280 * scale));
+        pop();
+      }
     }
   </script>
 </body>
