@@ -99,14 +99,13 @@ function activateAudio() {
   if (!isAudioActive) {
     userStartAudio().then(() => {
       mic = new p5.AudioIn();
-      mic.start(() => {
-        isAudioActive = true;
-        fft = new p5.FFT();
-        fft.setInput(mic);
-        console.log('mic started successfully');
-      }, (err) => {
-        console.error("Mic error: ", err);
-      });
+      mic.start();
+      isAudioActive = true;
+      fft = new p5.FFT();
+      fft.setInput(mic);
+      console.log('mic started successfully');
+    }).catch(err => {
+      console.error("Audio context error: ", err);
     });
   }
 }
