@@ -110,9 +110,6 @@
     }
 
     function draw() {
-      if (isAudioActive && fft) {
-  console.log('loudness:', loudness, 'highFreq:', highFreqEnergy);
-}
       clear();
 
       let scale = getScaleFactor();
@@ -143,6 +140,10 @@
 
         loudness = fft.getEnergy(100, 3000);
         let triggerThreshold = 102;
+
+        if (isAudioActive && fft) {
+  console.log('loudness:', loudness, 'highFreq:', highFreqEnergy);
+}
 
         if (activeMouth) {
           mouthTimer--;
