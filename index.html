@@ -35,6 +35,8 @@
     let audioCtx, analyser, microphone, dataArray;
     let isAudioActive = false;
 
+    let smoothedLoudness = 0;
+
     const BASE_WIDTH = 500;
     const BASE_HEIGHT = 800;
 
@@ -128,6 +130,7 @@
       let currentImageHue = 0;
       let eyeSize = 55 * scale;
       let loudness = 0;
+      let curved = 0;
 
       if (isAudioActive && analyser) {
         analyser.getByteFrequencyData(dataArray);
@@ -142,10 +145,19 @@
         // 2. Overall Loudness mapped to Wiggles, Eyes, and Mouth
         let totalSum = 0;
         for (let i = 0; i < dataArray.length; i++) totalSum += dataArray[i];
-        loudness = totalSum / dataArray.length;
+        let rawLoudness = totalSum / dataArray.length;
 
-        // No idle wiggle: absolute silence = 0 wiggle, scaling up directly with sound
-        wiggleFactor = map(loudness, 0, 55, 0, 25, true);
+        // smooth it so it doesn't jitter frame to frame
+        smoothedLoudness = lerp(smoothedLoudness, rawLoudness, 0.15);
+        loudness = smoothedLoudness;
+
+        // normalize against a wider, more realistic range (tune the 90 by testing your mic/room)
+        let normalized = constrain(loudness / 90, 0, 1);
+
+        // curve it so quiet = small wiggle, loud = big wiggle, with a natural ramp (tune the 1.6)
+        curved = pow(normalized, 1.6);
+
+        wiggleFactor = curved * 25;
 
         // Mouth triggers on speech/noise
         let triggerThreshold = 10;
@@ -157,10 +169,10 @@
           mouthTimer = 120;
         }
 
-        // Eye scaling tied to loudness
+        // Eye scaling tied to the same curved loudness value
         let minEyeSize = 55 * scale;
         let maxEyeSize = 120 * scale;
-        eyeSize = map(loudness, 0, 50, minEyeSize, maxEyeSize, true);
+        eyeSize = lerp(minEyeSize, maxEyeSize, curved);
       } else {
         wiggleFactor = 0;
       }
